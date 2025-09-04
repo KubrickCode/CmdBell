@@ -4,6 +4,9 @@
   "service": "workspace",
   "workspaceFolder": "/workspaces/cmd-bell",
   "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22.18.0"
+    },
     "ghcr.io/devcontainers/features/docker-in-docker:2": {},
     "./local-features/go": {},
     "./local-features/just": {}
