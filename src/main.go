@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -12,8 +14,15 @@ const MIN_DURATION = 15 * time.Second
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: cmdbell <command> [args...]")
+		fmt.Println("Usage:")
+		fmt.Println("  cmdbell <command> [args...]     - Execute command with notification")
+		fmt.Println("  cmdbell --monitor               - Start Docker container monitoring")
 		os.Exit(1)
+	}
+
+	if os.Args[1] == "--monitor" {
+		startDockerMonitoring()
+		return
 	}
 
 	command := os.Args[1]
@@ -37,6 +46,27 @@ func main() {
 	if err != nil {
 		os.Exit(1)
 	}
+}
+
+func startDockerMonitoring() {
+	monitor, err := NewDockerMonitor()
+	if err != nil {
+		fmt.Printf("Failed to create Docker monitor: %v\n", err)
+		os.Exit(1)
+	}
+
+	err = monitor.Start()
+	if err != nil {
+		fmt.Printf("Failed to start Docker monitoring: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Wait for interrupt signal
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
+
+	monitor.Stop()
 }
 
 func sendNotification(command string, duration time.Duration, success bool) {
