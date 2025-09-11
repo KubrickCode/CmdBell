@@ -148,15 +148,7 @@ func (dm *DockerMonitor) handleExecDie(event DockerEvent) {
 }
 
 func (dm *DockerMonitor) sendContainerNotification(info *ContainerExecInfo, duration time.Duration, success bool) {
-	status := "completed"
-	if !success {
-		status = "failed"
-	}
-
-	message := fmt.Sprintf("Container command '%s' in '%s' %s after %s",
-		info.Command, info.ContainerName, status, duration.Round(time.Second))
-
-	fmt.Printf("\n🔔 CmdBell: %s\n", message)
+	sendContainerNotification(info.Command, info.ContainerName, duration, success)
 }
 
 func (dm *DockerMonitor) Stop() {

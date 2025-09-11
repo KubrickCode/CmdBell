@@ -14,17 +14,75 @@ const MIN_DURATION = 15 * time.Second
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage:")
-		fmt.Println("  cmdbell <command> [args...]     - Execute command with notification")
-		fmt.Println("  cmdbell --monitor               - Start Docker container monitoring")
+		printUsage()
 		os.Exit(1)
 	}
 
-	if os.Args[1] == "--monitor" {
+	switch os.Args[1] {
+	case "--monitor":
 		startDockerMonitoring()
-		return
+	case "--daemon":
+		handleDaemonCommands()
+	default:
+		executeCommand()
+	}
+}
+
+func printUsage() {
+	fmt.Println("Usage:")
+	fmt.Println("  cmdbell <command> [args...]     - Execute command with notification")
+	fmt.Println("  cmdbell --monitor               - Start Docker container monitoring")
+	fmt.Println("  cmdbell --daemon start          - Start daemon mode")
+	fmt.Println("  cmdbell --daemon stop           - Stop daemon")
+	fmt.Println("  cmdbell --daemon status         - Check daemon status")
+	fmt.Println("  cmdbell --daemon restart        - Restart daemon")
+}
+
+func handleDaemonCommands() {
+	if len(os.Args) < 3 {
+		fmt.Println("Daemon command required: start, stop, status, restart")
+		os.Exit(1)
 	}
 
+	daemon := NewDaemon()
+	
+	switch os.Args[2] {
+	case "start":
+		if err := daemon.Start(); err != nil {
+			fmt.Printf("Failed to start daemon: %v\n", err)
+			os.Exit(1)
+		}
+		
+		// Keep running until shutdown
+		select {}
+		
+	case "stop":
+		if err := daemon.Stop(); err != nil {
+			fmt.Printf("Failed to stop daemon: %v\n", err)
+			os.Exit(1)
+		}
+		
+	case "status":
+		daemon.Status()
+		
+	case "restart":
+		daemon.Stop() // Ignore error if not running
+		time.Sleep(1 * time.Second)
+		if err := daemon.Start(); err != nil {
+			fmt.Printf("Failed to restart daemon: %v\n", err)
+			os.Exit(1)
+		}
+		
+		// Keep running until shutdown
+		select {}
+		
+	default:
+		fmt.Println("Invalid daemon command. Use: start, stop, status, restart")
+		os.Exit(1)
+	}
+}
+
+func executeCommand() {
 	command := os.Args[1]
 	args := os.Args[2:]
 
@@ -69,19 +127,3 @@ func startDockerMonitoring() {
 	monitor.Stop()
 }
 
-func sendNotification(command string, duration time.Duration, success bool) {
-	status := "completed"
-	if !success {
-		status = "failed"
-	}
-	
-	message := fmt.Sprintf("Command '%s' %s after %s", 
-		command, status, duration.Round(time.Second))
-	
-	fmt.Printf("\n🔔 CmdBell: %s\n", message)
-	
-	// TODO: Implement native OS notifications
-	// - macOS: osascript -e 'display notification...'
-	// - Linux: notify-send
-	// - Windows: toast notifications
-}
