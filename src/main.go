@@ -23,6 +23,12 @@ func main() {
 		startDockerMonitoring()
 	case "--daemon":
 		handleDaemonCommands()
+	case "--install":
+		handleShellInstall()
+	case "--uninstall":
+		handleShellUninstall()
+	case "--notify":
+		handleNotifyCommand()
 	default:
 		executeCommand()
 	}
@@ -36,6 +42,9 @@ func printUsage() {
 	fmt.Println("  cmdbell --daemon stop           - Stop daemon")
 	fmt.Println("  cmdbell --daemon status         - Check daemon status")
 	fmt.Println("  cmdbell --daemon restart        - Restart daemon")
+	fmt.Println("  cmdbell --install               - Install shell integration")
+	fmt.Println("  cmdbell --uninstall             - Remove shell integration")
+	fmt.Println("  cmdbell --notify <cmd> <dur> <exit> - Internal: send notification")
 }
 
 func handleDaemonCommands() {
@@ -125,5 +134,51 @@ func startDockerMonitoring() {
 	<-sigChan
 
 	monitor.Stop()
+}
+
+func handleShellInstall() {
+	integration, err := NewShellIntegration()
+	if err != nil {
+		fmt.Printf("Failed to create shell integration: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := integration.Install(); err != nil {
+		fmt.Printf("Failed to install shell integration: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func handleShellUninstall() {
+	integration, err := NewShellIntegration()
+	if err != nil {
+		fmt.Printf("Failed to create shell integration: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := integration.Uninstall(); err != nil {
+		fmt.Printf("Failed to uninstall shell integration: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func handleNotifyCommand() {
+	if len(os.Args) < 5 {
+		fmt.Println("Usage: cmdbell --notify <command> <duration_seconds> <exit_code>")
+		os.Exit(1)
+	}
+
+	command := os.Args[2]
+	durationStr := os.Args[3]
+	exitCodeStr := os.Args[4]
+
+	duration, err := time.ParseDuration(durationStr + "s")
+	if err != nil {
+		fmt.Printf("Invalid duration: %v\n", err)
+		os.Exit(1)
+	}
+
+	success := exitCodeStr == "0"
+	sendNotification(command, duration, success)
 }
 
