@@ -137,7 +137,7 @@ func (dm *DockerMonitor) handleExecDie(event DockerEvent) {
 		exitCode := event.Actor.Attributes["exitCode"]
 		success := exitCode == "0"
 
-		if duration >= MIN_DURATION {
+		if globalConfig != nil && duration >= globalConfig.General.MinDurationTime && globalConfig.General.EnableNotify {
 			dm.sendContainerNotification(info, duration, success)
 		}
 

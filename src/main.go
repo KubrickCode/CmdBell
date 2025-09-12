@@ -10,9 +10,17 @@ import (
 	"time"
 )
 
-const MIN_DURATION = 15 * time.Second
+var globalConfig *Config
 
 func main() {
+	// Load configuration first
+	config, err := LoadConfig()
+	if err != nil {
+		fmt.Printf("Failed to load configuration: %v\n", err)
+		os.Exit(1)
+	}
+	globalConfig = config
+
 	if len(os.Args) < 2 {
 		printUsage()
 		os.Exit(1)
@@ -106,7 +114,7 @@ func executeCommand() {
 	err := cmd.Run()
 	duration := time.Since(startTime)
 
-	if duration >= MIN_DURATION {
+	if globalConfig != nil && duration >= globalConfig.General.MinDurationTime && globalConfig.General.EnableNotify {
 		sendNotification(command, duration, err == nil)
 	}
 

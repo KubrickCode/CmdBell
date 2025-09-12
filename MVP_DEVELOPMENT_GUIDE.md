@@ -61,7 +61,7 @@ Others/
 ### 🔥 Phase 1: Core User Features (Current Phase)
 > **Goal**: Create a fully usable product
 
-- [ ] **Configuration File System** (create new `config.go`)
+- [x] **Configuration File System** (create new `config.go`) ✅ **COMPLETED**
   - Support for `.cmdbell.yaml` configuration file
   - Make hardcoded 15-second threshold configurable
   - Notification on/off, per-container settings, etc.
@@ -109,18 +109,20 @@ Others/
 
 ## 🎯 Immediate Tasks to Start (1-2 weeks)
 
-### Priority 1: Configuration File System
+### ✅ Priority 1: Configuration File System - COMPLETED
 ```bash
-# New files to create
-src/config.go           # Configuration file loading/saving logic
-~/.cmdbell/config.yaml  # Default configuration file
+# Files created
+src/config.go           # Configuration file loading/saving logic ✅
+~/.cmdbell/config.yaml  # Default configuration file ✅
 ```
 
-**Implementation details:**
-- YAML-based configuration file
-- Notification threshold setting (default: 15 seconds)
-- Per-container filtering
-- Notification method selection
+**Implemented features:**
+- YAML-based configuration file ✅
+- Notification threshold setting (default: 15 seconds) ✅
+- Notification on/off toggle ✅
+- Docker monitoring settings ✅
+- Notification method selection ✅
+- Automatic config file creation ✅
 
 ### Priority 2: Basic GUI Application
 ```bash
