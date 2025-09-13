@@ -1,4 +1,4 @@
-name: Release
+name: Build
 
 on:
   push:
@@ -6,30 +6,9 @@ on:
       - "release"
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-    steps:
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
-
   build:
-    name: Build and Upload Release Assets
-    needs: release
+    name: Build Release Assets
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -70,12 +49,8 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: go build -v -ldflags="-s -w" -o cmdbell${{ matrix.binary_suffix }} .
 
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          upload_url: ${{ needs.release.outputs.upload_url }}
-          asset_path: src/cmdbell${{ matrix.binary_suffix }}
-          asset_name: ${{ matrix.asset_name }}
-          asset_content_type: application/octet-stream
+          name: ${{ matrix.asset_name }}
+          path: src/cmdbell${{ matrix.binary_suffix }}
