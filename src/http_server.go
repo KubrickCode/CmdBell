@@ -33,13 +33,13 @@ func (hs *HTTPServer) Start() error {
 	mux.HandleFunc("/health", hs.handleHealth)
 
 	hs.server = &http.Server{
-		Addr:    fmt.Sprintf("localhost:%d", hs.port),
+		Addr:    fmt.Sprintf("0.0.0.0:%d", hs.port),
 		Handler: mux,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
 
-	log.Printf("🌐 Starting HTTP server on localhost:%d", hs.port)
+	log.Printf("🌐 Starting HTTP server on 0.0.0.0:%d", hs.port)
 	
 	// Start server in goroutine to not block
 	go func() {
