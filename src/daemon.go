@@ -14,6 +14,8 @@ import (
 
 type Daemon struct {
 	monitor    *DockerMonitor
+	httpServer *HTTPServer
+	config     *Config
 	pidFile    string
 	logFile    string
 	ctx        context.Context
@@ -25,7 +27,16 @@ func NewDaemon() *Daemon {
 	ctx, cancel := context.WithCancel(context.Background())
 	homeDir, _ := os.UserHomeDir()
 	
+	// Load configuration
+	config, err := LoadConfig()
+	if err != nil {
+		log.Printf("Failed to load config, using defaults: %v", err)
+		defaultConfig := getDefaultConfig()
+		config = &defaultConfig
+	}
+	
 	return &Daemon{
+		config:  config,
 		pidFile: filepath.Join(homeDir, ".cmdbell.pid"),
 		logFile: filepath.Join(homeDir, ".cmdbell.log"),
 		ctx:     ctx,
@@ -39,13 +50,6 @@ func (d *Daemon) Start() error {
 		return fmt.Errorf("cmdbell daemon is already running (PID: %d)", d.GetPID())
 	}
 
-	// Create Docker monitor
-	monitor, err := NewDockerMonitor()
-	if err != nil {
-		return fmt.Errorf("failed to create Docker monitor: %v", err)
-	}
-	d.monitor = monitor
-
 	// Write PID file
 	if err := d.writePIDFile(); err != nil {
 		return fmt.Errorf("failed to write PID file: %v", err)
@@ -56,10 +60,29 @@ func (d *Daemon) Start() error {
 		return fmt.Errorf("failed to setup logging: %v", err)
 	}
 
-	// Start monitoring
-	if err := d.monitor.Start(); err != nil {
-		d.cleanup()
-		return fmt.Errorf("failed to start monitoring: %v", err)
+	// Create and start HTTP server if enabled
+	if d.config.HTTP.Enabled {
+		d.httpServer = NewHTTPServer(d.config.HTTP.Port)
+		if err := d.httpServer.Start(); err != nil {
+			d.cleanup()
+			return fmt.Errorf("failed to start HTTP server: %v", err)
+		}
+	}
+
+	// Create and start Docker monitor
+	if d.config.Docker.Monitor {
+		monitor, err := NewDockerMonitor()
+		if err != nil {
+			log.Printf("⚠️  Docker monitor not available: %v", err)
+			log.Println("🔄 Continuing with HTTP server only...")
+		} else {
+			d.monitor = monitor
+			if err := d.monitor.Start(); err != nil {
+				log.Printf("⚠️  Failed to start Docker monitoring: %v", err)
+				log.Println("🔄 Continuing with HTTP server only...")
+				d.monitor = nil
+			}
+		}
 	}
 
 	d.isRunning = true
@@ -182,6 +205,10 @@ func (d *Daemon) shutdown() {
 	
 	if d.monitor != nil {
 		d.monitor.Stop()
+	}
+	
+	if d.httpServer != nil {
+		d.httpServer.Stop()
 	}
 	
 	d.cleanup()

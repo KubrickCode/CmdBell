@@ -21,6 +21,11 @@ type Config struct {
 		Filters []string `yaml:"filters"`
 	} `yaml:"docker"`
 	
+	HTTP struct {
+		Port    int  `yaml:"port"`
+		Enabled bool `yaml:"enabled"`
+	} `yaml:"http"`
+	
 	Notification struct {
 		Method   string `yaml:"method"`
 		Sound    bool   `yaml:"sound"`
@@ -41,6 +46,9 @@ func getDefaultConfig() Config {
 	
 	config.Docker.Monitor = true
 	config.Docker.Filters = []string{}
+	
+	config.HTTP.Port = 59721
+	config.HTTP.Enabled = true
 	
 	config.Notification.Method = "auto"
 	config.Notification.Sound = true

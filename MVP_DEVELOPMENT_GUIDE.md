@@ -26,7 +26,7 @@
 - **HTTP Client**: Sends command completion data to host daemon
 - **Auto-Installation**: Automatically installs hooks when container environment detected
 
-## ✅ MVP Completion Status (95% Complete)
+## ✅ MVP Completion Status (97% Complete)
 
 ### 🎯 Core MVP Features - Completed
 
@@ -54,12 +54,14 @@
   - preexec/precmd hook implementation
   - Automatic install/uninstall functionality
 
-### 🔄 MVP Enhancement Items (Container Internal Commands)
+### ✅ MVP Enhancement Items (Container Internal Commands) - COMPLETED
 
-- [ ] **HTTP Communication Server** (`http_server.go`)
+- [x] **HTTP Communication Server** (`http_server.go`) ✅ **COMPLETED**
   - HTTP server integration in daemon for container notifications
   - POST /notify endpoint for receiving container command data
   - JSON payload handling and validation
+  - Health check endpoint (/health)
+  - Port 59721 (configurable, avoids common conflicts)
 
 - [ ] **Enhanced Shell Integration** 
   - Modify Shell hooks to use HTTP instead of `--notify` parameter
@@ -257,15 +259,22 @@ cd src && ./cmdbell sleep 16                 # Long command test
 cd src && ./cmdbell --daemon start           # Start daemon (Docker + HTTP)
 cd src && ./cmdbell --install                # Install shell integration
 
-# Container internal command testing
-# 1. Windows: Start daemon with HTTP server
-cmdbell.exe --daemon start --verbose
+# HTTP Server Testing (Completed ✅)
+# 1. Start daemon with HTTP server
+./cmdbell --daemon start
 
-# 2. Container: Install shell integration (auto-detects container)
-./cmdbell --install
+# 2. Health check
+curl -X GET http://localhost:59721/health
 
-# 3. Container: Test internal commands
-sleep 20                                     # Should trigger Windows notification
+# 3. Test notification endpoint
+curl -X POST http://localhost:59721/notify \
+  -H "Content-Type: application/json" \
+  -d '{"command": "sleep 20", "container_name": "test", "duration": "20s", "success": true}'
+
+# 4. From container to Windows host
+curl -X POST http://docker.for.windows.localhost:59721/notify \
+  -H "Content-Type: application/json" \
+  -d '{"command": "npm build", "container_name": "dev_container", "duration": "45s", "success": true}'
 
 # CI/CD and deployment
 git push origin release                      # Trigger build workflow
