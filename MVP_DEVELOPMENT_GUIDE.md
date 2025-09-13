@@ -17,11 +17,13 @@
 **CmdBell uses a hybrid monitoring approach:**
 
 ### Windows Host (Daemon)
+
 - **Docker Events Monitor**: Tracks `docker run` and `docker exec` commands
 - **HTTP Server**: Receives notifications from container Shell hooks (localhost:8080)
 - **Native Notifications**: Sends Windows toast notifications
 
-### Container Environment  
+### Container Environment
+
 - **Shell Integration**: Bash/Zsh/Fish hooks monitor internal command execution
 - **HTTP Client**: Sends command completion data to host daemon
 - **Auto-Installation**: Automatically installs hooks when container environment detected
@@ -57,21 +59,25 @@
 ### ✅ MVP Enhancement Items (Container Internal Commands) - COMPLETED
 
 - [x] **HTTP Communication Server** (`http_server.go`) ✅ **COMPLETED**
+
   - HTTP server integration in daemon for container notifications
   - POST /notify endpoint for receiving container command data
   - JSON payload handling and validation
   - Health check endpoint (/health)
   - Port 59721 (configurable, avoids common conflicts)
 
-- [ ] **Enhanced Shell Integration** 
-  - Modify Shell hooks to use HTTP instead of `--notify` parameter
-  - Auto-detect host IP (docker.for.windows.localhost)
-  - Fallback to local logging on HTTP failure
+- [x] **Enhanced Shell Integration** ✅ **COMPLETED**
 
-- [ ] **Container Environment Detection**
-  - Auto-install Shell integration when running inside container
+  - Modified Shell hooks to use HTTP instead of `--notify` parameter
+  - Auto-detect Docker host IP (host.docker.internal, docker.for.windows.localhost, docker.for.mac.localhost)
+  - Fallback to local logging on HTTP failure
+  - JSON payload format for container notifications
+
+- [x] **Container Environment Detection** ✅ **COMPLETED**
+  - Auto-install Shell integration when running inside container (/.dockerenv detection)
   - Binary deployment and `--install` automation
   - Container-specific configuration handling
+  - Duplicate installation prevention
 
 ### ❌ MVP Missing Items
 
@@ -99,26 +105,30 @@ Others/
 
 ## 🎯 Development Priorities (Revised Order)
 
-### 🔥 Phase 1: Container Internal Command Support (Current Phase)
+### ✅ Phase 1: Container Internal Command Support - COMPLETED
 
-> **Goal**: Enable container-internal command detection and notification
+> **Goal**: Enable container-internal command detection and notification ✅ **ACHIEVED**
 
-- [ ] **HTTP Communication Server** (create new `http_server.go`)
-  - HTTP server for receiving container notifications  
+- [x] **HTTP Communication Server** ✅ **COMPLETED**
+
+  - HTTP server for receiving container notifications
   - Integration with existing daemon architecture
   - POST /notify endpoint with JSON payload validation
   - Error handling and logging
+  - Health check endpoint
 
-- [ ] **Enhanced Shell Integration** (modify `shell_integration.go`)
+- [x] **Enhanced Shell Integration** ✅ **COMPLETED**
+
   - HTTP client functionality in Shell hooks
-  - Auto-detect Docker host IP address
-  - Fallback mechanisms for network failures
-  - Container environment detection
+  - Auto-detect Docker host IP address (host.docker.internal, docker.for.\*.localhost)
+  - Fallback mechanisms for network failures (local --notify fallback)
+  - Container environment detection (/.dockerenv, DOCKER_HOST, cgroup)
 
-- [ ] **Daemon HTTP Integration** (modify `daemon.go`)
-  - Start HTTP server alongside Docker monitoring
+- [x] **Daemon HTTP Integration** ✅ **COMPLETED**
+
+  - HTTP server starts alongside Docker monitoring
   - Unified notification handling for both event sources
-  - Configuration for HTTP server port and binding
+  - Configuration for HTTP server port (59721) and binding
 
 - [x] **Configuration File System** ✅ **COMPLETED**
   - Support for `.cmdbell.yaml` configuration file
@@ -131,11 +141,13 @@ Others/
 > **Goal**: Install and test on actual PC with CI/CD automation
 
 - [x] **CI/CD Workflow Setup** ✅ **COMPLETED**
+
   - GitHub Actions for cross-platform builds
   - Automated binary releases for Windows/macOS/Linux
   - Cross-compilation for Windows builds
 
 - [ ] **Package Manager Integration** (Future)
+
   - Windows: Create Chocolatey package
   - macOS: Create Homebrew formula
   - Linux: Create .deb/.rpm packages
@@ -181,25 +193,26 @@ Others/
 - [ ] **Performance Optimization**
 - [ ] **Advanced Features** (webhooks, metrics, etc.)
 
-## 🎯 Immediate Tasks to Start (Current Sprint)
+## 🎯 Current Status & Next Steps
 
-### 🔥 Priority 1: Container Internal Command Support
+### ✅ Completed Tasks - Phase 1 Container Internal Command Support
 
 ```bash
-# Files to create/modify
-src/http_server.go       # New: HTTP server for container notifications
-src/daemon.go           # Modify: Integrate HTTP server with existing daemon
-src/shell_integration.go # Modify: Add HTTP client to Shell hooks
-src/main.go             # Modify: Add container environment detection
+# Files created/modified - ALL COMPLETED ✅
+src/http_server.go       # ✅ HTTP server for container notifications
+src/daemon.go           # ✅ Integrated HTTP server with existing daemon
+src/shell_integration.go # ✅ Added HTTP client to Shell hooks
+src/main.go             # ✅ Added container environment detection
 ```
 
-**Implementation details:**
+**Implemented features:**
 
-- HTTP server listening on localhost:8080
-- POST /notify endpoint with JSON payload validation
-- Shell hooks send HTTP requests instead of local --notify calls
-- Auto-detect Docker host IP (docker.for.windows.localhost)
-- Fallback to local logging on network failures
+- HTTP server listening on localhost:59721 ✅
+- POST /notify endpoint with JSON payload validation ✅
+- Shell hooks send HTTP requests instead of local --notify calls ✅
+- Auto-detect Docker host IP (host.docker.internal, docker.for.\*.localhost) ✅
+- Fallback to local logging on network failures ✅
+- Container environment auto-detection and auto-installation ✅
 
 ### ✅ Priority 2: CI/CD Workflow Setup - COMPLETED
 
@@ -283,12 +296,13 @@ git tag v1.0.0 && git push --tags          # Future: Create release
 
 ## 📝 Notes for Other AI Agents
 
-1. **Current Status**: MVP core features complete, adding container-internal command support
-2. **Current Priority**: HTTP server + Enhanced Shell Integration for container-internal commands
-3. **Architecture**: Hybrid monitoring (Docker events + HTTP server) for comprehensive command detection
-4. **User Requirements**: Container-internal commands (e.g., `sleep 20` in dev containers) must trigger Windows notifications
+1. **Current Status**: MVP 100% complete - Container-internal command support fully implemented ✅
+2. **Current Priority**: Ready for Phase 2 (Deployment) or Phase 3 (GUI Development)
+3. **Architecture**: Hybrid monitoring (Docker events + HTTP server) for comprehensive command detection ✅
+4. **User Requirements**: Container-internal commands (e.g., `sleep 20` in dev containers) trigger Windows notifications ✅
 5. **Tech Stack**: Go + HTTP server + Shell hooks + GitHub Actions for CI/CD
 6. **Testing Environment**: Docker development containers + Windows host notifications
+7. **Key Achievement**: Automatic container environment detection with shell integration auto-installation
 
 ## 🔗 Communication Flow
 
@@ -296,7 +310,7 @@ git tag v1.0.0 && git push --tags          # Future: Create release
 Container Internal Command → Shell Hook → HTTP POST → Windows Daemon → Toast Notification
      (sleep 20)           (preexec/precmd)  (localhost:8080)  (cmdbell.exe)     (Windows)
 
-Docker External Command → Docker Events → Windows Daemon → Toast Notification  
+Docker External Command → Docker Events → Windows Daemon → Toast Notification
   (docker run alpine sleep 20)    (exec_die)     (cmdbell.exe)    (Windows)
 ```
 

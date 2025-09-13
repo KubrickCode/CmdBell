@@ -31,9 +31,9 @@ func NewShellIntegration() (*ShellIntegration, error) {
 
 func (si *ShellIntegration) Install() error {
 	shells := []string{"bash", "zsh", "fish"}
-	
+
 	fmt.Println("🔧 Installing CmdBell shell integration...")
-	
+
 	for _, shell := range shells {
 		if err := si.installForShell(shell); err != nil {
 			fmt.Printf("⚠️  Warning: Failed to install for %s: %v\n", shell, err)
@@ -41,7 +41,7 @@ func (si *ShellIntegration) Install() error {
 			fmt.Printf("✅ Installed for %s\n", shell)
 		}
 	}
-	
+
 	fmt.Println("\n🎉 Shell integration installed!")
 	fmt.Println("💡 Restart your shell or run 'source ~/.bashrc' (or equivalent) to activate")
 	return nil
@@ -49,9 +49,9 @@ func (si *ShellIntegration) Install() error {
 
 func (si *ShellIntegration) Uninstall() error {
 	shells := []string{"bash", "zsh", "fish"}
-	
+
 	fmt.Println("🗑️  Removing CmdBell shell integration...")
-	
+
 	for _, shell := range shells {
 		if err := si.uninstallForShell(shell); err != nil {
 			fmt.Printf("⚠️  Warning: Failed to remove from %s: %v\n", shell, err)
@@ -59,7 +59,7 @@ func (si *ShellIntegration) Uninstall() error {
 			fmt.Printf("✅ Removed from %s\n", shell)
 		}
 	}
-	
+
 	fmt.Println("🎉 Shell integration removed!")
 	return nil
 }
@@ -92,32 +92,32 @@ func (si *ShellIntegration) uninstallForShell(shell string) error {
 
 func (si *ShellIntegration) installBash() error {
 	bashrcPath := filepath.Join(si.homeDir, ".bashrc")
-	
+
 	bashHook := si.generateBashHook()
 	return si.addToShellConfig(bashrcPath, bashHook)
 }
 
 func (si *ShellIntegration) installZsh() error {
 	zshrcPath := filepath.Join(si.homeDir, ".zshrc")
-	
+
 	zshHook := si.generateZshHook()
 	return si.addToShellConfig(zshrcPath, zshHook)
 }
 
 func (si *ShellIntegration) installFish() error {
 	fishConfigDir := filepath.Join(si.homeDir, ".config", "fish", "config.fish")
-	
+
 	// Create fish config directory if it doesn't exist
 	if err := os.MkdirAll(filepath.Dir(fishConfigDir), 0755); err != nil {
 		return fmt.Errorf("failed to create fish config directory: %v", err)
 	}
-	
+
 	fishHook := si.generateFishHook()
 	return si.addToShellConfig(fishConfigDir, fishHook)
 }
 
 func (si *ShellIntegration) generateBashHook() string {
-	return fmt.Sprintf(`
+	return `
 # CmdBell shell integration - START
 _cmdbell_preexec() {
     export CMDBELL_START_TIME=$(date +%%s.%%N)
@@ -132,7 +132,36 @@ _cmdbell_precmd() {
         
         if [[ $duration_int -ge 15 ]]; then
             local exit_code=$?
-            "%s" --notify "$CMDBELL_COMMAND" "$duration_int" "$exit_code" &
+            local success="true"
+            [[ $exit_code -ne 0 ]] && success="false"
+            
+            # Try to detect Docker host IP
+            local host_ip="localhost"
+            if [[ -f "/.dockerenv" ]] || [[ -n "$DOCKER_HOST" ]]; then
+                # Running in container, try Docker host IPs
+                if command -v nslookup >/dev/null 2>&1; then
+                    if nslookup host.docker.internal >/dev/null 2>&1; then
+                        host_ip="host.docker.internal"
+                    elif nslookup docker.for.windows.localhost >/dev/null 2>&1; then
+                        host_ip="docker.for.windows.localhost"
+                    elif nslookup docker.for.mac.localhost >/dev/null 2>&1; then
+                        host_ip="docker.for.mac.localhost"
+                    fi
+                fi
+            fi
+            
+            # Send HTTP notification
+            local payload='{"command":"'"$CMDBELL_COMMAND"'","container_name":"'"${HOSTNAME:-unknown}"'","duration":"'"${duration_int}s"'","success":'"$success"'}'
+            
+            # Try HTTP first, fallback to local notification
+            if ! curl -s -X POST "http://$host_ip:59721/notify" \
+                -H "Content-Type: application/json" \
+                -d "$payload" >/dev/null 2>&1; then
+                # HTTP failed, try local fallback if cmdbell binary exists
+                if command -v cmdbell >/dev/null 2>&1; then
+                    cmdbell --notify "$CMDBELL_COMMAND" "$duration_int" "$exit_code" &
+                fi
+            fi
         fi
         
         unset CMDBELL_START_TIME
@@ -146,11 +175,11 @@ if [[ -n "$PS1" ]]; then
     PROMPT_COMMAND="_cmdbell_precmd${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
 fi
 # CmdBell shell integration - END
-`, si.executablePath)
+`
 }
 
 func (si *ShellIntegration) generateZshHook() string {
-	return fmt.Sprintf(`
+	return `
 # CmdBell shell integration - START
 _cmdbell_preexec() {
     export CMDBELL_START_TIME=$(date +%%s.%%N)
@@ -164,7 +193,37 @@ _cmdbell_precmd() {
         local duration_int=$(printf "%%.0f" "$duration")
         
         if [[ $duration_int -ge 15 ]]; then
-            "%s" --notify "$CMDBELL_COMMAND" "$duration_int" "$?" &
+            local exit_code=$?
+            local success="true"
+            [[ $exit_code -ne 0 ]] && success="false"
+            
+            # Try to detect Docker host IP
+            local host_ip="localhost"
+            if [[ -f "/.dockerenv" ]] || [[ -n "$DOCKER_HOST" ]]; then
+                # Running in container, try Docker host IPs
+                if command -v nslookup >/dev/null 2>&1; then
+                    if nslookup host.docker.internal >/dev/null 2>&1; then
+                        host_ip="host.docker.internal"
+                    elif nslookup docker.for.windows.localhost >/dev/null 2>&1; then
+                        host_ip="docker.for.windows.localhost"
+                    elif nslookup docker.for.mac.localhost >/dev/null 2>&1; then
+                        host_ip="docker.for.mac.localhost"
+                    fi
+                fi
+            fi
+            
+            # Send HTTP notification
+            local payload='{"command":"'"$CMDBELL_COMMAND"'","container_name":"'"${HOSTNAME:-unknown}"'","duration":"'"${duration_int}s"'","success":'"$success"'}'
+            
+            # Try HTTP first, fallback to local notification
+            if ! curl -s -X POST "http://$host_ip:59721/notify" \
+                -H "Content-Type: application/json" \
+                -d "$payload" >/dev/null 2>&1; then
+                # HTTP failed, try local fallback if cmdbell binary exists
+                if command -v cmdbell >/dev/null 2>&1; then
+                    cmdbell --notify "$CMDBELL_COMMAND" "$duration_int" "$exit_code" &
+                fi
+            fi
         fi
         
         unset CMDBELL_START_TIME
@@ -179,11 +238,11 @@ if [[ -n "$PS1" ]]; then
     add-zsh-hook precmd _cmdbell_precmd
 fi
 # CmdBell shell integration - END
-`, si.executablePath)
+`
 }
 
 func (si *ShellIntegration) generateFishHook() string {
-	return fmt.Sprintf(`
+	return `
 # CmdBell shell integration - START
 function _cmdbell_preexec --on-event fish_preexec
     set -gx CMDBELL_START_TIME (date +%%s.%%N)
@@ -197,7 +256,39 @@ function _cmdbell_postcmd --on-event fish_postexec
         set duration_int (printf "%%.0f" "$duration")
         
         if test $duration_int -ge 15
-            "%s" --notify "$CMDBELL_COMMAND" "$duration_int" "$status" &
+            set exit_code $status
+            set success "true"
+            if test $exit_code -ne 0
+                set success "false"
+            end
+            
+            # Try to detect Docker host IP
+            set host_ip "localhost"
+            if test -f "/.dockerenv"; or test -n "$DOCKER_HOST"
+                # Running in container, try Docker host IPs
+                if command -v nslookup >/dev/null 2>&1
+                    if nslookup host.docker.internal >/dev/null 2>&1
+                        set host_ip "host.docker.internal"
+                    else if nslookup docker.for.windows.localhost >/dev/null 2>&1
+                        set host_ip "docker.for.windows.localhost"
+                    else if nslookup docker.for.mac.localhost >/dev/null 2>&1
+                        set host_ip "docker.for.mac.localhost"
+                    end
+                end
+            end
+            
+            # Send HTTP notification
+            set payload '{"command":"'"$CMDBELL_COMMAND"'","container_name":"'(hostname)'","duration":"'"$duration_int"'s","success":'"$success"'}'
+            
+            # Try HTTP first, fallback to local notification
+            if not curl -s -X POST "http://$host_ip:59721/notify" \
+                -H "Content-Type: application/json" \
+                -d "$payload" >/dev/null 2>&1
+                # HTTP failed, try local fallback if cmdbell binary exists
+                if command -v cmdbell >/dev/null 2>&1
+                    cmdbell --notify "$CMDBELL_COMMAND" "$duration_int" "$exit_code" &
+                end
+            end
         end
         
         set -e CMDBELL_START_TIME
@@ -205,25 +296,25 @@ function _cmdbell_postcmd --on-event fish_postexec
     end
 end
 # CmdBell shell integration - END
-`, si.executablePath)
+`
 }
 
 func (si *ShellIntegration) addToShellConfig(configPath, hookContent string) error {
 	startMarker := "# CmdBell shell integration - START"
 	endMarker := "# CmdBell shell integration - END"
-	
+
 	// Read existing config
 	var existingContent string
 	if content, err := os.ReadFile(configPath); err == nil {
 		existingContent = string(content)
 	}
-	
+
 	// Remove existing hook if present
 	cleanContent := si.removeExistingHook(existingContent, startMarker, endMarker)
-	
+
 	// Add new hook
 	newContent := cleanContent + "\n" + hookContent + "\n"
-	
+
 	return os.WriteFile(configPath, []byte(newContent), 0644)
 }
 
@@ -232,18 +323,18 @@ func (si *ShellIntegration) removeExistingHook(content, startMarker, endMarker s
 	if startIdx == -1 {
 		return content
 	}
-	
+
 	endIdx := strings.Index(content[startIdx:], endMarker)
 	if endIdx == -1 {
 		return content
 	}
-	
+
 	endIdx += startIdx + len(endMarker)
-	
+
 	// Remove the hook section (including trailing newlines)
 	before := strings.TrimRight(content[:startIdx], "\n")
 	after := strings.TrimLeft(content[endIdx:], "\n")
-	
+
 	if before == "" {
 		return after
 	}
@@ -271,7 +362,7 @@ func (si *ShellIntegration) uninstallFish() error {
 func (si *ShellIntegration) removeFromShellConfig(configPath string) error {
 	startMarker := "# CmdBell shell integration - START"
 	endMarker := "# CmdBell shell integration - END"
-	
+
 	content, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -279,8 +370,8 @@ func (si *ShellIntegration) removeFromShellConfig(configPath string) error {
 		}
 		return fmt.Errorf("failed to read config file: %v", err)
 	}
-	
+
 	cleanContent := si.removeExistingHook(string(content), startMarker, endMarker)
-	
+
 	return os.WriteFile(configPath, []byte(cleanContent), 0644)
 }

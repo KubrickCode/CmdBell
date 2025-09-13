@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -20,6 +21,11 @@ func main() {
 		os.Exit(1)
 	}
 	globalConfig = config
+
+	// Auto-install shell integration in container environments
+	if isRunningInContainer() {
+		autoInstallShellIntegration()
+	}
 
 	if len(os.Args) < 2 {
 		printUsage()
@@ -62,26 +68,26 @@ func handleDaemonCommands() {
 	}
 
 	daemon := NewDaemon()
-	
+
 	switch os.Args[2] {
 	case "start":
 		if err := daemon.Start(); err != nil {
 			fmt.Printf("Failed to start daemon: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 		// Keep running until shutdown
 		select {}
-		
+
 	case "stop":
 		if err := daemon.Stop(); err != nil {
 			fmt.Printf("Failed to stop daemon: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 	case "status":
 		daemon.Status()
-		
+
 	case "restart":
 		daemon.Stop() // Ignore error if not running
 		time.Sleep(1 * time.Second)
@@ -89,10 +95,10 @@ func handleDaemonCommands() {
 			fmt.Printf("Failed to restart daemon: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 		// Keep running until shutdown
 		select {}
-		
+
 	default:
 		fmt.Println("Invalid daemon command. Use: start, stop, status, restart")
 		os.Exit(1)
@@ -104,7 +110,7 @@ func executeCommand() {
 	args := os.Args[2:]
 
 	fmt.Printf("Executing: %s %s\n", command, strings.Join(args, " "))
-	
+
 	startTime := time.Now()
 	cmd := exec.Command(command, args...)
 	cmd.Stdout = os.Stdout
@@ -190,3 +196,75 @@ func handleNotifyCommand() {
 	sendNotification(command, duration, success)
 }
 
+// isRunningInContainer checks if the current process is running inside a Docker container
+func isRunningInContainer() bool {
+	// Check for .dockerenv file (most reliable method)
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		return true
+	}
+
+	// Check for Docker-related environment variables
+	if os.Getenv("DOCKER_HOST") != "" || os.Getenv("DOCKER_CONTAINER") != "" {
+		return true
+	}
+
+	// Check cgroup for container indicators
+	if data, err := os.ReadFile("/proc/1/cgroup"); err == nil {
+		contents := string(data)
+		if strings.Contains(contents, "docker") || strings.Contains(contents, "containerd") {
+			return true
+		}
+	}
+
+	return false
+}
+
+// autoInstallShellIntegration automatically installs shell integration in container environments
+func autoInstallShellIntegration() {
+	// Check if already installed by looking for CmdBell markers in shell configs
+	if isShellIntegrationInstalled() {
+		return
+	}
+
+	fmt.Println("🐳 Container environment detected - auto-installing shell integration...")
+
+	integration, err := NewShellIntegration()
+	if err != nil {
+		fmt.Printf("⚠️  Warning: Failed to create shell integration: %v\n", err)
+		return
+	}
+
+	if err := integration.Install(); err != nil {
+		fmt.Printf("⚠️  Warning: Failed to auto-install shell integration: %v\n", err)
+		return
+	}
+
+	fmt.Println("✅ Shell integration auto-installed in container environment!")
+}
+
+// isShellIntegrationInstalled checks if shell integration is already installed
+func isShellIntegrationInstalled() bool {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+
+	// Check common shell config files for CmdBell markers
+	shellConfigs := []string{
+		".bashrc",
+		".zshrc",
+		".config/fish/config.fish",
+	}
+
+	for _, config := range shellConfigs {
+		configPath := filepath.Join(homeDir, config)
+		if data, err := os.ReadFile(configPath); err == nil {
+			contents := string(data)
+			if strings.Contains(contents, "CmdBell shell integration - START") {
+				return true
+			}
+		}
+	}
+
+	return false
+}
