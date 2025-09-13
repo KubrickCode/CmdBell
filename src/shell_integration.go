@@ -120,15 +120,15 @@ func (si *ShellIntegration) generateBashHook() string {
 	return `
 # CmdBell shell integration - START
 _cmdbell_preexec() {
-    export CMDBELL_START_TIME=$(date +%%s.%%N)
+    export CMDBELL_START_TIME=$(date +%s.%N)
     export CMDBELL_COMMAND="$1"
 }
 
 _cmdbell_precmd() {
     if [[ -n "$CMDBELL_START_TIME" ]] && [[ -n "$CMDBELL_COMMAND" ]]; then
-        local end_time=$(date +%%s.%%N)
+        local end_time=$(date +%s.%N)
         local duration=$(echo "$end_time - $CMDBELL_START_TIME" | bc -l)
-        local duration_int=$(printf "%%.0f" "$duration")
+        local duration_int=$(printf "%.0f" "$duration")
         
         if [[ $duration_int -ge 15 ]]; then
             local exit_code=$?
@@ -182,15 +182,15 @@ func (si *ShellIntegration) generateZshHook() string {
 	return `
 # CmdBell shell integration - START
 _cmdbell_preexec() {
-    export CMDBELL_START_TIME=$(date +%%s.%%N)
+    export CMDBELL_START_TIME=$(date +%s.%N)
     export CMDBELL_COMMAND="$1"
 }
 
 _cmdbell_precmd() {
     if [[ -n "$CMDBELL_START_TIME" ]] && [[ -n "$CMDBELL_COMMAND" ]]; then
-        local end_time=$(date +%%s.%%N)
+        local end_time=$(date +%s.%N)
         local duration=$(echo "$end_time - $CMDBELL_START_TIME" | bc -l 2>/dev/null || echo "0")
-        local duration_int=$(printf "%%.0f" "$duration")
+        local duration_int=$(printf "%.0f" "$duration")
         
         if [[ $duration_int -ge 15 ]]; then
             local exit_code=$?
@@ -245,15 +245,15 @@ func (si *ShellIntegration) generateFishHook() string {
 	return `
 # CmdBell shell integration - START
 function _cmdbell_preexec --on-event fish_preexec
-    set -gx CMDBELL_START_TIME (date +%%s.%%N)
+    set -gx CMDBELL_START_TIME (date +%s.%N)
     set -gx CMDBELL_COMMAND "$argv"
 end
 
 function _cmdbell_postcmd --on-event fish_postexec
     if test -n "$CMDBELL_START_TIME"; and test -n "$CMDBELL_COMMAND"
-        set end_time (date +%%s.%%N)
+        set end_time (date +%s.%N)
         set duration (math "$end_time - $CMDBELL_START_TIME")
-        set duration_int (printf "%%.0f" "$duration")
+        set duration_int (printf "%.0f" "$duration")
         
         if test $duration_int -ge 15
             set exit_code $status
