@@ -50,7 +50,7 @@ jobs:
         run: go build -v -ldflags="-s -w" -o cmdbell${{ matrix.binary_suffix }} .
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.asset_name }}
           path: src/cmdbell${{ matrix.binary_suffix }}
